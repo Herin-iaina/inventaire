@@ -1,13 +1,10 @@
-from fastapi import FastAPI, Depends, Query
-from typing import List, Optional
+from fastapi import FastAPI, Depends, Query, HTTPException
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
-from . import mac_operations
-from . import screen_operation
-from . import materiel_operation
+from . import mac_operations, screen_operation, materiel_operation
 from .database import get_db
-from .models import MacItem, MacItemCreate, MacItemUpdate
-from .models import EcranItems, EcranCreate, EcranUpdate
-from . import models, schemas
+from .models import MacItem, MacItemCreate, MacItemUpdate, EcranItems, EcranCreate, EcranUpdate
+from . import schemas
 
 app = FastAPI(title="MAC and Screen Inventory API")
 
@@ -30,7 +27,7 @@ def search_mac_items(
 @app.get("/mac-items/", response_model=List[MacItem])
 def read_mac_items(
     skip: int = 0,
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, ge=1, le=100),  # Added ge=1 for validation
     db: Session = Depends(get_db)
 ):
     ops = mac_operations.MacOperations(db)
@@ -73,7 +70,7 @@ def search_ecran_items(
 @app.get("/ecran-items/", response_model=List[EcranItems])
 def read_ecran_items(
     skip: int = 0,
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, ge=1, le=100),  # Added ge=1 for validation
     db: Session = Depends(get_db)
 ):
     ops = screen_operation.ScreenOperations(db)
@@ -96,7 +93,6 @@ def delete_ecran_item(item_id: int, db: Session = Depends(get_db)):
     ops = screen_operation.ScreenOperations(db)
     ops.delete_ecran_item(item_id)
     return {"message": "Screen deleted successfully"}
-
 
 # Endpoints pour Categorie
 @app.post("/categories/", response_model=schemas.Categorie)
@@ -176,7 +172,6 @@ def delete_equipement(
     """
     operations = materiel_operation.EquipementOperations(db)
     return operations.delete_equipement(equipement_id)
-
 
 
 # Endpoints pour DetailEquipement
