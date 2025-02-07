@@ -153,4 +153,57 @@ class EcranUpdate(EcranItems):
 class EcranInDB(EcranItems):
     id_ecran: int
 
-        
+#Autre materiel 
+class CategorieBase(BaseModel):
+    nom_categorie: str
+    description: Optional[str] = None
+
+class CategorieCreate(CategorieBase):
+    pass
+
+class Categorie(CategorieBase):
+    id_categorie: int
+    
+    class Config:
+        from_attributes = True
+
+class EquipementBase(BaseModel):
+    id_categorie: int
+    numero_serie: str
+    marque: str
+    modele: str
+    date_achat: date
+    date_mise_en_service: date
+    statut: str
+    localisation: str
+    prix: Decimal
+    fournisseur: str
+    garantie_expire: date
+    commentaires: Optional[str] = None
+
+class EquipementCreate(EquipementBase):
+    pass
+
+class Equipement(EquipementBase):
+    id_equipement: int
+
+    class Config:
+        from_attributes = True
+
+class DetailEquipementBase(BaseModel):
+    id_equipement: int
+    type_connexion: Optional[str] = None
+    puissance_watts: Optional[Decimal] = None
+    longueur_cable: Optional[Decimal] = None
+    couleur: Optional[str] = None
+    compatibilite: Optional[str] = None
+    caracteristiques_specifiques: Optional[str] = None
+
+class DetailEquipementCreate(DetailEquipementBase):
+    pass
+
+class DetailEquipement(DetailEquipementBase):
+    id_detail: int
+
+    class Config:
+        from_attributes = True   

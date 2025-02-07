@@ -3,9 +3,11 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from . import mac_operations
 from . import screen_operation
+from . import materiel_operation
 from .database import get_db
 from .models import MacItem, MacItemCreate, MacItemUpdate
 from .models import EcranItems, EcranCreate, EcranUpdate
+from . import models, schemas
 
 app = FastAPI(title="MAC and Screen Inventory API")
 
@@ -94,3 +96,105 @@ def delete_ecran_item(item_id: int, db: Session = Depends(get_db)):
     ops = screen_operation.ScreenOperations(db)
     ops.delete_ecran_item(item_id)
     return {"message": "Screen deleted successfully"}
+
+
+# Endpoints pour Categorie
+@app.post("/categories/", response_model=schemas.Categorie)
+def create_categorie_endpoint(categorie: schemas.CategorieCreate, db: Session = Depends(get_db)):
+    return materiel_operation.create_categorie(db=db, categorie=categorie)
+
+@app.get("/categories/", response_model=List[schemas.Categorie])
+def read_categories(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    categories = materiel_operation.get_categories(db, skip=skip, limit=limit)
+    return categories
+
+@app.get("/categories/{categorie_id}", response_model=schemas.Categorie)
+def read_categorie(categorie_id: int, db: Session = Depends(get_db)):
+    db_categorie = materiel_operation.get_categorie(db, categorie_id=categorie_id)
+    if db_categorie is None:
+        raise HTTPException(status_code=404, detail="Categorie not found")
+    return db_categorie
+
+@app.put("/categories/{categorie_id}", response_model=schemas.Categorie)
+def update_categorie_endpoint(categorie_id: int, categorie: schemas.CategorieCreate, db: Session = Depends(get_db)):
+    return materiel_operation.update_categorie(db=db, categorie_id=categorie_id, categorie=categorie)
+
+@app.delete("/categories/{categorie_id}", response_model=schemas.Categorie)
+def delete_categorie_endpoint(categorie_id: int, db: Session = Depends(get_db)):
+    return materiel_operation.delete_categorie(db=db, categorie_id=categorie_id)
+
+# Endpoints pour Equipement
+@app.post("/equipements/", response_model=schemas.Equipement)
+def create_or_update_equipement(
+    equipement_data: Dict,
+    detail_data: Optional[Dict] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Créer ou mettre à jour un équipement avec ses détails optionnels
+    """
+    try:
+        operations = materiel_operation.EquipementOperations(db)
+        equipement = operations.create_or_update_equipement(
+            equipement_data, 
+            detail_data
+        )
+        return equipement
+    except HTTPException as e:
+        raise e
+
+@app.get("/equipements/", response_model=List[schemas.Equipement])
+def list_equipements(
+    skip: int = 0, 
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer la liste des équipements
+    """
+    operations = materiel_operation.EquipementOperations(db)
+    return operations.get_all_equipements(skip, limit)
+
+@app.get("/equipements/{equipement_id}")
+def get_equipement_details(
+    equipement_id: int, 
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les détails d'un équipement spécifique
+    """
+    operations = materiel_operation.EquipementOperations(db)
+    return operations.get_equipement_with_details(equipement_id)
+
+@app.delete("/equipements/{equipement_id}", response_model=schemas.Equipement)
+def delete_equipement(
+    equipement_id: int, 
+    db: Session = Depends(get_db)
+):
+    """
+    Supprimer un équipement et ses détails associés
+    """
+    operations = materiel_operation.EquipementOperations(db)
+    return operations.delete_equipement(equipement_id)
+
+
+
+# Endpoints pour DetailEquipement
+@app.post("/details/", response_model=schemas.DetailEquipement)
+def create_detail_endpoint(detail: schemas.DetailEquipementCreate, db: Session = Depends(get_db)):
+    return materiel_operation.create_detail_equipement(db=db, detail=detail)
+
+@app.get("/details/{detail_id}", response_model=schemas.DetailEquipement)
+def read_detail(detail_id: int, db: Session = Depends(get_db)):
+    db_detail = materiel_operation.get_detail_equipement(db, detail_id=detail_id)
+    if db_detail is None:
+        raise HTTPException(status_code=404, detail="Detail not found")
+    return db_detail
+
+@app.put("/details/{detail_id}", response_model=schemas.DetailEquipement)
+def update_detail_endpoint(detail_id: int, detail: schemas.DetailEquipementCreate, db: Session = Depends(get_db)):
+    return materiel_operation.update_detail_equipement(db=db, detail_id=detail_id, detail=detail)
+
+@app.delete("/details/{detail_id}", response_model=schemas.DetailEquipement)
+def delete_detail_endpoint(detail_id: int, db: Session = Depends(get_db)):
+    return materiel_operation.delete_detail_equipement(db=db, detail_id=detail_id)
