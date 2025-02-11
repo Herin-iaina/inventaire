@@ -35,3 +35,17 @@ CREATE TABLE DetailEquipement (
     caracteristiques_specifiques TEXT,
     FOREIGN KEY (id_equipement) REFERENCES Equipement(id_equipement)
 );
+
+-- Table des historiques
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    table_name VARCHAR(50) NOT NULL,
+    record_id INTEGER NOT NULL,
+    action VARCHAR(10) NOT NULL,
+    old_values JSONB,
+    new_values JSONB,
+    user_id INTEGER NOT NULL,
+    ip_address VARCHAR(50),
+    user_agent VARCHAR(200),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

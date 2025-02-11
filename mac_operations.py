@@ -7,6 +7,7 @@ from datetime import date
 
 from .database import get_db  # Import get_db from  database module
 from .models import MacItemDB, MacItem  # Import  SQLAlchemy and Pydantic models
+from audit_manager import audit_changes, AuditManager, AuditLog
 
 
 # Configure logging
@@ -16,7 +17,8 @@ class MacOperations:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_or_update_mac_item(self, mac_item_data: dict) -> "MacItemDB":
+    @audit_changes(table_name="mac_inventory")
+    async def create_or_update_mac_item(self, mac_item_data: dict) -> "MacItemDB":
         try:
             numero_serie = mac_item_data.get("numero_serie")
             if not numero_serie:
@@ -45,6 +47,7 @@ class MacOperations:
             self.db.rollback()
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass
 
     def get_mac_item(self, item_id: int) -> "MacItemDB":
         try:
@@ -52,16 +55,54 @@ class MacOperations:
             if not item:
                 logger.warning(f"MAC item not found with ID: {item_id}")
                 raise HTTPException(status_code=404, detail="MAC item not found")
-            return item
+            
+            # Récupération de l'historique
+            history = self.audit_manager.get_history(
+                table_name="mac_inventory",
+                record_id=item_id
+            )
+            
+            # Formatage de l'historique pour l'affichage
+            formatted_history = []
+            for log in history:
+                formatted_log = {
+                    "date": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "user": self._get_user_info(log.user_id),
+                    "action": log.action.value,
+                    "changes": self._format_changes(log.old_values, log.new_values)
+                }
+                formatted_history.append(formatted_log)
+
+            return item, formatted_history
 
         except SQLAlchemyError as e:
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass
 
     def list_mac_items(self, skip: int = 0, limit: int = 100) -> List["MacItemDB"]:
         try:
             items = self.db.query(MacItemDB).offset(skip).limit(limit).all()
-            return items
+            result = []
+            
+            for item in items:
+                # Récupère uniquement le dernier changement pour la liste
+                last_change = self.audit_manager.get_history(
+                    table_name="mac_inventory",
+                    record_id=item.id_mac,
+                    limit=1
+                )
+                
+                item_dict = self._model_to_dict(item)
+                item_dict["last_modification"] = {
+                    "date": last_change[0].timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "user": self._get_user_info(last_change[0].user_id),
+                    "action": last_change[0].action.value
+                } if last_change else None
+                
+                result.append(item_dict)
+            # return items
+            return result
 
         except SQLAlchemyError as e:
             logger.error(f"Database error: {str(e)}")

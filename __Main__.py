@@ -5,8 +5,9 @@ from . import mac_operations, screen_operation, materiel_operation
 from .database import get_db
 from .models import MacItem, MacItemCreate, MacItemUpdate, EcranItems, EcranCreate, EcranUpdate
 from . import schemas
+from audit_manager import audit_changes, AuditManager, AuditLog
 
-app = FastAPI(title="MAC and Screen Inventory API")
+app = FastAPI(title="Inventory API")
 
 # MAC endpoints
 @app.post("/mac-items/", response_model=MacItem)
@@ -193,3 +194,13 @@ def update_detail_endpoint(detail_id: int, detail: schemas.DetailEquipementCreat
 @app.delete("/details/{detail_id}", response_model=schemas.DetailEquipement)
 def delete_detail_endpoint(detail_id: int, db: Session = Depends(get_db)):
     return materiel_operation.delete_detail_equipement(db=db, detail_id=detail_id)
+
+
+@app.get("/history/{table_name}/{record_id}")
+async def get_record_history(
+    table_name: str,
+    record_id: int,
+    db: Session = Depends(get_db)
+):
+    audit_manager = AuditManager(db)
+    return audit_manager.get_history(table_name, record_id)

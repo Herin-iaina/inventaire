@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
@@ -7,14 +8,17 @@ from datetime import date
 
 from .database import get_db
 from .models import EcranItemsDB, EcranItems
+from audit_manager import audit_changes, AuditManager, AuditLog
 
 logger = logging.getLogger(__name__)
 
 class ScreenOperations:
     def __init__(self, db: Session):
         self.db = db
+        self.audit_manager = AuditManager(db)
 
-    def create_or_update_ecran_item(self, screen_item_data: dict) -> "EcranItemsDB":
+    @audit_changes(table_name="ecran")
+    async def create_or_update_ecran_item(self, screen_item_data: dict) -> "EcranItemsDB":
         try:
             # Check required fields only for creation (when id_ecran is not present)
             if "id_ecran" not in screen_item_data:
@@ -68,29 +72,71 @@ class ScreenOperations:
             self.db.rollback()
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass
+        
 
-    def get_ecran_item(self, item_id: int) -> "EcranItemsDB":
+    def get_ecran_item(self, item_id: int) -> Tuple["EcranItemsDB", List["AuditLog"]]:
         try:
             item = self.db.query(EcranItemsDB).filter(EcranItemsDB.id_ecran == item_id).first()
             if not item:
                 logger.warning(f"Screen item not found with ID: {item_id}")
                 raise HTTPException(status_code=404, detail="Screen item not found")
-            return item
+            
+            # Récupération de l'historique
+            history = self.audit_manager.get_history(
+                table_name="ecran",
+                record_id=item_id
+            )
+            
+            # Formatage de l'historique pour l'affichage
+            formatted_history = []
+            for log in history:
+                formatted_log = {
+                    "date": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "user": self._get_user_info(log.user_id),
+                    "action": log.action.value,
+                    "changes": self._format_changes(log.old_values, log.new_values)
+                }
+                formatted_history.append(formatted_log)
+            
+            return item, formatted_history
 
         except SQLAlchemyError as e:
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass
 
     def list_ecran_items(self, skip: int = 0, limit: int = 100) -> List["EcranItemsDB"]:
         try:
             items = self.db.query(EcranItemsDB).offset(skip).limit(limit).all()
-            return items
+            result = []
+            
+            for item in items:
+                # Récupère uniquement le dernier changement pour la liste
+                last_change = self.audit_manager.get_history(
+                    table_name="ecran",
+                    record_id=item.id_ecran,
+                    limit=1
+                )
+                
+                item_dict = self._model_to_dict(item)
+                item_dict["last_modification"] = {
+                    "date": last_change[0].timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "user": self._get_user_info(last_change[0].user_id),
+                    "action": last_change[0].action.value
+                } if last_change else None
+                
+                result.append(item_dict)
+            # return items
+            return result
 
         except SQLAlchemyError as e:
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass
 
-    def delete_ecran_item(self, item_id: int) -> bool:
+    @audit_changes(table_name="ecran")
+    async def delete_ecran_item(self, item_id: int) -> bool:
         try:
             item = self.db.query(EcranItemsDB).filter(EcranItemsDB.id_ecran == item_id).first()
             if not item:
@@ -106,6 +152,7 @@ class ScreenOperations:
             self.db.rollback()
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass
 
     def search_ecran_items(self, 
                         numero_serie: Optional[str] = None,
@@ -129,3 +176,4 @@ class ScreenOperations:
         except SQLAlchemyError as e:
             logger.error(f"Database error: {str(e)}")
             raise HTTPException(status_code=500, detail="Database operation failed")
+        pass

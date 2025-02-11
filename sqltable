@@ -1,0 +1,13 @@
+# operations/screen_operations.py
+from audit_manager import audit_changes
+
+class ScreenOperations:
+    @audit_changes(table_name="ecrans")
+    async def create_or_update_ecran_item(self, screen_item_data: dict):
+        # Votre code existant
+        pass
+
+    @audit_changes(table_name="ecrans")
+    async def delete_ecran_item(self, item_id: int):
+        # Votre code existant
+        pass

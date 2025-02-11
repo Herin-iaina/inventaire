@@ -3,6 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
 import logging
 from . import models, schemas
+from audit_manager import audit_changes, AuditManager, AuditLog
 
 # Configuration du logger
 logger = logging.getLogger(__name__)
