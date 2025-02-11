@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from typing import Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 class MacOperations:
     def __init__(self, db: Session):
         self.db = db
+        self.audit_manager = AuditManager(db)
 
     @audit_changes(table_name="mac_inventory")
     async def create_or_update_mac_item(self, mac_item_data: dict) -> "MacItemDB":
@@ -49,7 +51,7 @@ class MacOperations:
             raise HTTPException(status_code=500, detail="Database operation failed")
         pass
 
-    def get_mac_item(self, item_id: int) -> "MacItemDB":
+    def get_mac_item(self, item_id: int) ->  Tuple["MacItemDB", List["AuditLog"]] :
         try:
             item = self.db.query(MacItemDB).filter(MacItemDB.id_mac == item_id).first()
             if not item:
